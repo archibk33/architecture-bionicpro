@@ -46,7 +46,10 @@
 │  └─ dags
 │     └─ reports_etl_dag.py
 ├─ docs
-│  └─ BionicPRO_C4_model.drawio.xml
+│  └─Task1
+|       └─BionicPRO_C4_model.drawio_Task_1.xml
+│  └─Task2
+|       └─BionicPRO_C4_model.drawio.xml
 └─ docker-compose.yaml
 ```
 

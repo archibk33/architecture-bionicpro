@@ -9,6 +9,7 @@ from fastapi import Depends, FastAPI, Header, HTTPException, Response, status
 from fastapi.middleware.cors import CORSMiddleware
 import jwt
 import clickhouse_connect
+import socket
 
 
 KEYCLOAK_INTERNAL_URL = os.getenv("KEYCLOAK_INTERNAL_URL", os.getenv("KEYCLOAK_URL", "http://keycloak:8080"))
@@ -96,12 +97,31 @@ def healthz() -> dict:
 
 
 def get_ch_client():
-    host = os.getenv("CLICKHOUSE_HOST", "localhost")
+    host = os.getenv("CLICKHOUSE_HOST", "clickhouse")
     port = int(os.getenv("CLICKHOUSE_PORT", "8123"))
     user = os.getenv("CLICKHOUSE_USER", "default")
     password = os.getenv("CLICKHOUSE_PASSWORD", "")
     database = os.getenv("CLICKHOUSE_DB", "reports")
-    return clickhouse_connect.get_client(host=host, port=port, username=user, password=password, database=database)
+
+    retries = int(os.getenv("CLICKHOUSE_CONNECT_RETRIES", "10"))
+    delay_seconds = float(os.getenv("CLICKHOUSE_CONNECT_DELAY", "1.0"))
+
+    last_exception: Optional[Exception] = None
+    for attempt in range(1, retries + 1):
+        try:
+            # Быстрый DNS-пинг, чтобы зафиксировать ранние проблемы разрешения имени
+            socket.getaddrinfo(host, port)
+            return clickhouse_connect.get_client(
+                host=host, port=port, username=user, password=password, database=database
+            )
+        except Exception as ex:  # noqa: BLE001
+            last_exception = ex
+            time.sleep(delay_seconds)
+
+    raise HTTPException(
+        status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+        detail=f"ClickHouse недоступен или не разрешается имя '{host}': {last_exception}"
+    )
 
 
 @app.get("/reports")

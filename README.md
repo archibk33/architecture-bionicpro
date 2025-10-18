@@ -50,7 +50,11 @@
 |       └─BionicPRO_C4_model.drawio_Task_1.xml
 │  └─Task2
 |       └─BionicPRO_C4_model.drawio.xml
-└─ docker-compose.yaml
+├─ docker-compose.yaml
+├─ docker-compose.linux.yaml
+├─ start.sh
+├─ stop.sh
+└─ init-clickhouse.sh
 ```
 
 ## Быстрый старт 🚀
@@ -64,8 +68,33 @@
 * Установи Python 3.11 и pip
 
 Запуск всего стенда
+
+**Автоматический запуск (рекомендуется):**
+```bash
+./start.sh
 ```
-docker-compose up -d --build
+
+**Ручной запуск:**
+
+*Для Linux:*
+```bash
+# Инициализация ClickHouse (только при первом запуске или проблемах)
+./init-clickhouse.sh
+
+# Запуск с Linux конфигурацией
+docker compose -f docker-compose.yaml -f docker-compose.linux.yaml up -d --build
+```
+
+*Для Windows:*
+```bash
+docker compose up -d --build
+```
+
+**Остановка проекта:**
+```bash
+./stop.sh
+# или
+docker compose down
 ```
 
 Проверка сервисов

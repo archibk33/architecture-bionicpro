@@ -22,14 +22,14 @@ def load_crm_and_telemetry(**_):
     now = datetime.utcnow()
     start = now - timedelta(days=1)
     end = now
-    client.command("INSERT INTO user_reports (user_sub, ts, metric) VALUES", [
-        {"user_sub": "user1-sub", "ts": now, "metric": 0.7},
-        {"user_sub": "user1-sub", "ts": now, "metric": 0.9},
-        {"user_sub": "user2-sub", "ts": now, "metric": 0.5},
-    ])
-    client.command("INSERT INTO load_markers (loaded_from, loaded_to) VALUES", [
-        {"loaded_from": start, "loaded_to": end}
-    ])
+    rows = [
+        ("user1-sub", now, 0.7),
+        ("user1-sub", now, 0.9),
+        ("user2-sub", now, 0.5),
+    ]
+    client.insert("user_reports", rows, column_names=["user_sub", "ts", "metric"])
+
+    client.insert("load_markers", [(start, end)], column_names=["loaded_from", "loaded_to"])
 
 
 default_args = {

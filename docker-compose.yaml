@@ -75,7 +75,7 @@ services:
     environment:
       CLICKHOUSE_DB: reports
     volumes:
-      - ./clickhouse-data:/var/lib/clickhouse
+      - clickhouse-data:/var/lib/clickhouse
   airflow:
     image: apache/airflow:2.9.2
     environment:
@@ -93,3 +93,5 @@ services:
       - "8081:8080"
     depends_on:
       - clickhouse
+volumes:
+  clickhouse-data:

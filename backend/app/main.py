@@ -88,6 +88,45 @@ def verify_token_and_get_subject(authorization: Optional[str] = Header(None)) ->
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token has no subject")
     return subject
 
+ # Проверяем роль в /reports (замечание от 19.10.2025)
+def _decode_token(authorization: Optional[str]) -> dict:
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Missing bearer token")
+    token = authorization.split(" ", 1)[1]
+
+    public_key = get_public_key(token)
+    if public_key is None:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Unable to resolve token key")
+
+    options = {"verify_aud": API_AUDIENCE is not None}
+    try:
+        payload = jwt.decode(
+            token,
+            public_key,
+            algorithms=["RS256"],
+            audience=API_AUDIENCE if API_AUDIENCE else None,
+            options=options,
+        )
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=f"Invalid token: {exc}")
+
+    token_iss = str(payload.get("iss", "")).rstrip("/")
+    expected_suffix = f"/realms/{KEYCLOAK_REALM}"
+    if not token_iss.endswith(expected_suffix):
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token: Invalid issuer")
+    return payload
+
+
+def require_reports_role(authorization: Optional[str] = Header(None)) -> None:
+    payload = _decode_token(authorization)
+    roles = payload.get("realm_access", {}).get("roles", []) or []
+    required_role = os.getenv("REPORTS_REQUIRED_ROLE", "prothetic_user")
+    admin_role = os.getenv("ADMIN_ROLE", "administrator")
+    if admin_role in roles:
+        return
+    if required_role not in roles:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient role to access reports")
+
 
 @app.get("/healthz")
 def healthz() -> dict:
@@ -125,7 +164,12 @@ def get_ch_client():
 
 
 @app.get("/reports")
-def get_report(current_user_sub: str = Depends(verify_token_and_get_subject), start: Optional[str] = None, end: Optional[str] = None) -> Response:
+def get_report(
+    current_user_sub: str = Depends(verify_token_and_get_subject),
+    _: None = Depends(require_reports_role),
+    start: Optional[str] = None,
+    end: Optional[str] = None
+) -> Response:
     client = get_ch_client()
     client.command("CREATE TABLE IF NOT EXISTS user_reports (user_sub String, ts DateTime, metric Float64) ENGINE = MergeTree ORDER BY (user_sub, ts)")
     client.command("CREATE TABLE IF NOT EXISTS load_markers (loaded_from DateTime, loaded_to DateTime) ENGINE = ReplacingMergeTree ORDER BY loaded_to")

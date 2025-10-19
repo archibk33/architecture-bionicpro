@@ -1,2 +1,11 @@
+pintr/
+postgres-keycloak-data/
+frontend/node_modules/
+backend/__pycache__/
+airflow/dags/__pycache__/
+clickhouse-data/
+.env
+.env.*
+
 /postgres-keycloak-data
 2024__yandex-architecture-sso.code-workspace
